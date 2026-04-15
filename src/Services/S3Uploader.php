@@ -41,14 +41,21 @@ class S3Uploader
      * @return array Risultato dell'upload
      * @throws \Exception
      */
-    public function uploadFile(string $localFilePath, string $s3Key, array $options = []): array
+    public function uploadFile(string $localFilePath, ?string $s3Key = null, array $options = []): array
     {
         if (!file_exists($localFilePath)) {
             throw new \Exception("File not found: {$localFilePath}");
         }
+        $sourceFile = $localFilePath;
+
+        //clean the doc root form localFilepath
+        $localFilePath = str_replace(_PS_ROOT_DIR_, '', $localFilePath);
+        if(is_null($s3Key)) {
+            $s3Key = ltrim($localFilePath, '/');
+        }
 
         // Aggiungi il prefisso al path
-        $fullKey = $this->pathPrefix . ltrim($s3Key, '/');
+        $fullKey = $this->pathPrefix . $s3Key;
 
         // Determina il content type dal file
         $contentType = $this->getContentType($localFilePath);
@@ -57,9 +64,8 @@ class S3Uploader
         $params = array_merge([
             'Bucket' => $this->bucket,
             'Key' => $fullKey,
-            'SourceFile' => $localFilePath,
-            'ContentType' => $contentType,
-            'ACL' => 'public-read', // Rendi le immagini pubblicamente accessibili
+            'SourceFile' => $sourceFile,
+            'ContentType' => $contentType
         ], $options);
 
         try {
@@ -90,7 +96,7 @@ class S3Uploader
         
         foreach ($files as $localPath => $s3Key) {
             try {
-                $results[$s3Key] = $this->uploadFile($localPath, $s3Key);
+                $results[$s3Key] = $this->uploadFile($localPath);
             } catch (\Exception $e) {
                 $results[$s3Key] = [
                     'success' => false,

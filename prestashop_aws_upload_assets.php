@@ -37,13 +37,13 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 use MlabPs\AwsUploadAssets\Controllers\ModuleController;
 
 
-class mlab_aws_upload_assets extends Module
+class prestashop_aws_upload_assets extends Module
 {
     private $moduleController;
 
     public function __construct()
     {
-        $this->name = 'mlab_aws_upload_assets';
+        $this->name = 'prestashop_aws_upload_assets';
         $this->tab = 'back_office_features';
         $this->version = '1.0.0';
         $this->author = 'mlabfactory';
@@ -100,6 +100,7 @@ class mlab_aws_upload_assets extends Module
             $this->registerHook('actionWatermark') && // Quando le immagini vengono rigenerate
             $this->registerHook('actionAfterImageUpload') && // Dopo l'upload di un'immagine
             $this->registerHook('actionAfterUpdateProductImage'); // Dopo l'aggiornamento di un'immagine prodotto
+            // actionOnImageCutAfter
     }
 
     public function uninstall()

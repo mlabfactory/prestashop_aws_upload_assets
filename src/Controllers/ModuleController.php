@@ -144,23 +144,26 @@ class ModuleController
     private function uploadImageFile(\Image $image, \Product $product, ?array $imageType = null)
     {
         $imagePath = $image->getPathForCreation();
+        $fileExtension = $image->image_format; // Es. 'jpg', 'png'
         
         if ($imageType === null) {
             // Immagine originale
-            $fullPath = $imagePath . '.jpg';
+            $fullPath = $imagePath . '.' . $fileExtension;
             $s3Key = sprintf(
-                '%d/%d.jpg',
+                '%d/%d.%s',
                 $product->id,
-                $image->id
+                $image->id,
+                $fileExtension
             );
         } else {
             // Immagine ridimensionata
-            $fullPath = $imagePath . '-' . $imageType['name'] . '.jpg';
+            $fullPath = $imagePath . '-' . $imageType['name'] . '.' . $fileExtension;
             $s3Key = sprintf(
-                '%d/%d-%s.jpg',
+                '%d/%d-%s.%s',
                 $product->id,
                 $image->id,
-                $imageType['name']
+                $imageType['name'],
+                $fileExtension
             );
         }
 
@@ -175,7 +178,7 @@ class ModuleController
         }
 
         try {
-            $this->getS3Uploader()->uploadFile($fullPath, $s3Key);
+            $this->getS3Uploader()->uploadFile($fullPath);
             
             \PrestaShopLogger::addLog(
                 "AWS Upload - Successfully uploaded: {$s3Key}",
