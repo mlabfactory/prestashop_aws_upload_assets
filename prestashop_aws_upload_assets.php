@@ -99,8 +99,11 @@ class prestashop_aws_upload_assets extends Module
         return parent::install() &&
             $this->registerHook('actionWatermark') && // Quando le immagini vengono rigenerate
             $this->registerHook('actionAfterImageUpload') && // Dopo l'upload di un'immagine
-            $this->registerHook('actionAfterUpdateProductImage'); // Dopo l'aggiornamento di un'immagine prodotto
-            // actionOnImageCutAfter
+            $this->registerHook('actionAfterUpdateProductImage') && // Dopo l'aggiornamento di un'immagine prodotto
+            $this->registerHook('actionOnImageCutAfter') && // Dopo il ritaglio di un'immagine
+            $this->registerHook('actionImageFormat') && // Quando viene generato un formato immagine specifico
+            $this->registerHook('actionOnImageResize') && // Quando l'immagine viene ridimensionata/generata dinamicamente
+            $this->registerHook('actionAfterGenerateWebpImage'); // Dopo la generazione di immagini WebP
     }
 
     public function uninstall()
@@ -118,6 +121,14 @@ class prestashop_aws_upload_assets extends Module
     }
 
     /**
+     * Hook chiamato dopo il ritaglio di un'immagine
+     */
+    public function hookActionOnImageCutAfter($params)
+    {
+        return $this->getModuleController()->handleImageCut($params);
+    }
+
+    /**
      * Hook chiamato dopo l'upload di un'immagine
      */
     public function hookActionAfterImageUpload($params)
@@ -131,6 +142,30 @@ class prestashop_aws_upload_assets extends Module
     public function hookActionAfterUpdateProductImage($params)
     {
         return $this->getModuleController()->handleProductImageUpdate($params);
+    }
+
+    /**
+     * Hook chiamato quando viene generato un formato immagine specifico
+     */
+    public function hookActionImageFormat($params)
+    {
+        return $this->getModuleController()->handleImageFormat($params);
+    }
+
+    /**
+     * Hook chiamato quando l'immagine viene ridimensionata/generata dinamicamente
+     */
+    public function hookActionOnImageResize($params)
+    {
+        return $this->getModuleController()->handleImageResize($params);
+    }
+
+    /**
+     * Hook chiamato dopo la generazione di immagini WebP
+     */
+    public function hookActionAfterGenerateWebpImage($params)
+    {
+        return $this->getModuleController()->handleWebpGeneration($params);
     }
 
     /**

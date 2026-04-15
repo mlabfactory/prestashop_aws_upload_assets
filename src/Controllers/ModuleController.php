@@ -66,6 +66,29 @@ class ModuleController
     }
 
     /**
+     * hook dopo il ritaglio dell'immagine
+     */
+    public function handleImageCut($params)
+    {
+        try {
+            if (isset($params['id_image'])) {
+                $imageId = $params['id_image'];
+                $this->uploadProductImageAllSizes($imageId);
+            }
+            
+            return true;
+        } catch (\Exception $e) {
+            \PrestaShopLogger::addLog(
+                'AWS Upload - Image Cut Error: ' . $e->getMessage(),
+                3,
+                null,
+                'MlabAwsUploadAssets'
+            );
+            return false;
+        }
+    }
+
+    /**
      * Gestisce l'upload di un'immagine
      */
     public function handleImageUpload($params)
@@ -108,6 +131,162 @@ class ModuleController
                 'MlabAwsUploadAssets'
             );
             return false;
+        }
+    }
+
+    /**
+     * Gestisce la generazione di formati immagine specifici (incluso WebP)
+     */
+    public function handleImageFormat($params)
+    {
+        try {
+            // Controlla se è stata generata un'immagine WebP
+            if (isset($params['format']) && $params['format'] === 'webp') {
+                $this->handleWebpImageGenerated($params);
+            }
+            
+            return true;
+        } catch (\Exception $e) {
+            \PrestaShopLogger::addLog(
+                'AWS Upload - Image Format Error: ' . $e->getMessage(),
+                3,
+                null,
+                'MlabAwsUploadAssets'
+            );
+            return false;
+        }
+    }
+
+    /**
+     * Gestisce il ridimensionamento dinamico delle immagini
+     */
+    public function handleImageResize($params)
+    {
+        try {
+            // Questo hook viene chiamato quando PrestaShop genera dinamicamente le immagini
+            if (isset($params['image_path']) && strpos($params['image_path'], '.webp') !== false) {
+                $this->uploadWebpFromPath($params['image_path']);
+            }
+            
+            return true;
+        } catch (\Exception $e) {
+            \PrestaShopLogger::addLog(
+                'AWS Upload - Image Resize Error: ' . $e->getMessage(),
+                3,
+                null,
+                'MlabAwsUploadAssets'
+            );
+            return false;
+        }
+    }
+
+    /**
+     * Gestisce la generazione specifica di immagini WebP
+     */
+    public function handleWebpGeneration($params)
+    {
+        try {
+            if (isset($params['webp_path'])) {
+                $this->uploadWebpFromPath($params['webp_path']);
+            } elseif (isset($params['id_image'])) {
+                // Cerca e carica tutti i file WebP per questa immagine
+                $this->uploadWebpForImage($params['id_image']);
+            }
+            
+            return true;
+        } catch (\Exception $e) {
+            \PrestaShopLogger::addLog(
+                'AWS Upload - WebP Generation Error: ' . $e->getMessage(),
+                3,
+                null,
+                'MlabAwsUploadAssets'
+            );
+            return false;
+        }
+    }
+
+    /**
+     * Carica un singolo file WebP da un percorso specifico
+     */
+    private function uploadWebpFromPath(string $webpPath)
+    {
+        if (!file_exists($webpPath) || !str_ends_with($webpPath, '.webp')) {
+            return;
+        }
+
+        // Estrai informazioni dal percorso per creare la chiave S3
+        $relativePath = str_replace(_PS_IMG_DIR_, '', $webpPath);
+        $s3Key = 'products/' . ltrim($relativePath, '/');
+
+        try {
+            $this->getS3Uploader()->uploadFile($webpPath, $s3Key);
+            
+            \PrestaShopLogger::addLog(
+                "AWS Upload - Successfully uploaded WebP: {$s3Key}",
+                1,
+                null,
+                'MlabAwsUploadAssets'
+            );
+        } catch (\Exception $e) {
+            \PrestaShopLogger::addLog(
+                "AWS Upload - Failed to upload WebP {$s3Key}: " . $e->getMessage(),
+                3,
+                null,
+                'MlabAwsUploadAssets'
+            );
+            throw $e;
+        }
+    }
+
+    /**
+     * Cerca e carica tutti i file WebP per un'immagine specifica
+     */
+    private function uploadWebpForImage(int $imageId)
+    {
+        $image = new \Image($imageId);
+        if (!\Validate::isLoadedObject($image)) {
+            return;
+        }
+
+        $product = new \Product($image->id_product);
+        if (!\Validate::isLoadedObject($product)) {
+            return;
+        }
+
+        $imagePath = $image->getPathForCreation();
+        $imageTypes = \ImageType::getImagesTypes('products');
+
+        // Controlla WebP dell'immagine originale
+        $originalWebp = $imagePath . '.webp';
+        if (file_exists($originalWebp)) {
+            $s3Key = sprintf('products/%d/%d.webp', $product->id, $image->id);
+            $this->uploadWebpFromPath($originalWebp);
+        }
+
+        // Controlla WebP di tutti i tagli
+        foreach ($imageTypes as $imageType) {
+            $resizedWebp = $imagePath . '-' . $imageType['name'] . '.webp';
+            if (file_exists($resizedWebp)) {
+                $s3Key = sprintf('products/%d/%d-%s.webp', $product->id, $image->id, $imageType['name']);
+                $this->uploadWebpFromPath($resizedWebp);
+            }
+        }
+    }
+
+    /**
+     * Gestisce quando un'immagine WebP viene generata
+     */
+    private function handleWebpImageGenerated($params)
+    {
+        if (isset($params['image_path'])) {
+            // Costruisci il percorso del file WebP
+            $originalPath = $params['image_path'];
+            $webpPath = pathinfo($originalPath, PATHINFO_DIRNAME) . '/' . 
+                       pathinfo($originalPath, PATHINFO_FILENAME) . '.webp';
+            
+            if (file_exists($webpPath)) {
+                $this->uploadWebpFromPath($webpPath);
+            }
         }
     }
 
@@ -170,7 +349,7 @@ class ModuleController
         if (!file_exists($fullPath)) {
             \PrestaShopLogger::addLog(
                 "AWS Upload - File not found: {$fullPath}",
-                2,
+                2,  
                 null,
                 'MlabAwsUploadAssets'
             );

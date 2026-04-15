@@ -19,7 +19,7 @@ class S3Uploader
         string $pathPrefix = 'products/'
     ) {
         $this->bucket = $bucket;
-        $this->pathPrefix = rtrim($pathPrefix, '/') . '/';
+        $this->pathPrefix = rtrim($pathPrefix, '/');
 
         // Inizializza il client S3
         $this->s3Client = new S3Client([
